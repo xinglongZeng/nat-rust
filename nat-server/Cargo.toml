@@ -14,3 +14,5 @@ actix = "0.11.0"
 actix-rt = "2.2" # <-- Runtime for actix
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
+derive_more="0.99.17"
+actix-files="0.6.2"
