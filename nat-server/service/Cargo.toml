@@ -1,0 +1,31 @@
+[package]
+name = "service"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+entity = { path = "../entity" }
+actix-rt = "2.2" # <-- Runtime for actix
+
+[dependencies.sea-orm]
+version = "0.11.3" # sea-orm version
+features = [
+    "debug-print",
+    "runtime-tokio-native-tls",
+    "sqlx-mysql",
+]
+
+# 使用tokio作为运行时
+[dev-dependencies]
+tokio = { version = "1.20.0", features = ["macros", "rt"] }
+
+
+[[test]]
+name = "mock"
+required-features = ["mock"]
+
+
+[features]
+mock = ["sea-orm/mock"]
