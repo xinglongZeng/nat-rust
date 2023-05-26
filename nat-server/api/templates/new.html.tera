@@ -5,18 +5,18 @@
     <div class="twelve columns">
       <input
         type="text"
-        placeholder="enter title"
-        name="title"
-        id="title"
+        placeholder="enter name"
+        name="name"
+        id="name"
         value=""
         autofocus
         class="u-full-width"
       />
       <input
-        type="text"
-        placeholder="enter content"
-        name="text"
-        id="text"
+        type="password"
+        placeholder="enter pwd"
+        name="pwd"
+        id="pwd"
         value=""
         autofocus
         class="u-full-width"

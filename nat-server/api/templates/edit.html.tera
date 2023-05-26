@@ -7,19 +7,19 @@
         <div class="twelve columns">
           <input
             type="text"
-            placeholder="title"
-            name="title"
-            id="title"
-            value="{{ post.title }}"
+            placeholder="name"
+            name="name"
+            id="name"
+            value="{{ post.name }}"
             autofocus
             class="u-full-width"
           />
           <input
             type="text"
             placeholder="content"
-            name="text"
-            id="text"
-            value="{{ post.text }}"
+            name="pwd"
+            id="pwd"
+            value="{{ post.pwd }}"
             autofocus
             class="u-full-width"
           />
