@@ -32,7 +32,10 @@ struct LoginReqHandler {}
 
 impl HandleProtocolData for LoginReqHandler {
     // todo:
-    fn handle(&self, a: &Vec<u8>) {}
+    fn handle(&self, a: &Vec<u8>) {
+        let req: LoginReqData = bincode::deserialize(a).unwrap();
+        println!("LoginReqHandler received data :{:?}  ", req);
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

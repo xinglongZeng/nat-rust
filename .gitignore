@@ -1,0 +1,6 @@
+/nat-server/entity/Cargo.lock
+/nat-server/service/Cargo.lock
+/nat-server/Cargo.lock
+target/
+entity/target/
+../.idea
