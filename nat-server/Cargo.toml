@@ -21,5 +21,9 @@ sea-orm ="0.11.3"
 
 api={path="api"}
 
+my-api={path="my-api"}
+my-service={path="my-service"}
+my-entity={path="my-entity"}
+
 [workspace]
-members = [".", "api", "service", "entity"]
+members = [".","my-api","my-entity","my-service", "api", "service", "entity"]

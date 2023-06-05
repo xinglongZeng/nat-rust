@@ -17,7 +17,7 @@ features = [
     "sqlx-mysql",
 ]
 
-# 使用tokio作为运行时
+# 测试用的使用tokio作为运行时
 [dev-dependencies]
 tokio = { version = "1.20.0", features = ["macros", "rt"] }
 
