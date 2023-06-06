@@ -16,7 +16,7 @@ impl HandleProtocolData for LoginReqHandler {
 }
 
 pub trait  HandleProtocolFactoryTemplate{
-    fn getFactory(&self)->HandleProtocolFactory;
+    fn get_factory(&self)->HandleProtocolFactory;
 }
 
 

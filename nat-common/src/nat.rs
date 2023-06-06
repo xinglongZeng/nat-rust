@@ -211,7 +211,7 @@ fn handle_pkg<T: HandleProtocolFactoryTemplate>(pkg: &Protocol, template: &T) {
     // convert bytes to struct by type
     let data_type = pkg.data_type.as_ref().unwrap()[0].clone();
     let command = ChatCommand::to_self(data_type);
-    let factory=template.getFactory();
+    let factory=template.get_factory();
     let handler = factory.get_handler(&command);
     handler.handle(pkg.data.as_ref().unwrap());
 }
@@ -281,7 +281,7 @@ mod tests {
 
     impl HandleProtocolFactoryTemplate for TemplateImpl{
 
-        fn getFactory(&self)->HandleProtocolFactory{
+        fn get_factory(&self)->HandleProtocolFactory{
 
             let mut allHandler: HashMap<ChatCommand, Box<dyn HandleProtocolData>> = HashMap::new();
 
