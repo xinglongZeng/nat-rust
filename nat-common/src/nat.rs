@@ -1,5 +1,5 @@
 use crate::chat_protocol::{calculate_len_by_data, ChatCommand, LoginReqData, Protocol};
-use crate::protocol_factory::HandleProtocolFactory;
+use crate::protocol_factory::{HandleProtocolFactory,HandleProtocolFactoryTemplate};
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
@@ -44,9 +44,9 @@ impl EnvConfig {
     }
 }
 
-pub async fn start_tcp_server(
+pub async fn start_tcp_server<T: HandleProtocolFactoryTemplate>(
     envConfig: &EnvConfig,
-    fatory: &HandleProtocolFactory,
+    template: &T,
 ) -> tokio::io::Result<()> {
     // start tcp listener
     let listener = TcpListener::bind(get_local_addres_from_config(envConfig)).await?;
@@ -57,7 +57,7 @@ pub async fn start_tcp_server(
     loop {
         let (mut stream, address) = listener.accept().await.unwrap();
 
-        parse_tcp_stream(stream, address, &mut all_conn_cache, fatory).await;
+        parse_tcp_stream(stream, address, &mut all_conn_cache, template).await;
     }
 }
 
@@ -136,11 +136,11 @@ fn get_local_addres_from_config(config: &EnvConfig) -> String {
     address
 }
 
-pub async fn parse_tcp_stream(
-    mut stream: TcpStream,
+pub async fn parse_tcp_stream<T: HandleProtocolFactoryTemplate>(
+    stream: TcpStream,
     address: SocketAddr,
     all_cache: &mut HashMap<SocketAddr, ProtocolCacheData>,
-    factory: &HandleProtocolFactory,
+    template: &T,
 ) {
     match all_cache.get_mut(&address) {
         Some(t) => match t.data {
@@ -180,7 +180,7 @@ pub async fn parse_tcp_stream(
         index += len.clone();
 
         if pkg.completion() {
-            handle_pkg(&pkg, factory);
+            handle_pkg(&pkg, template);
         }
     }
 }
@@ -205,12 +205,13 @@ fn fill(pkg: &mut Protocol, all_bytes: &Vec<u8>, mut index: usize, total_len: us
 }
 
 // todo:
-fn handle_pkg(pkg: &Protocol, factory: &HandleProtocolFactory) {
+fn handle_pkg<T: HandleProtocolFactoryTemplate>(pkg: &Protocol, template: &T) {
     println!("{:?}", pkg);
 
     // convert bytes to struct by type
     let data_type = pkg.data_type.as_ref().unwrap()[0].clone();
     let command = ChatCommand::to_self(data_type);
+    let factory=template.getFactory();
     let handler = factory.get_handler(&command);
     handler.handle(pkg.data.as_ref().unwrap());
 }
@@ -220,7 +221,7 @@ fn handle_pkg(pkg: &Protocol, factory: &HandleProtocolFactory) {
 mod tests {
     use crate::chat_protocol::{ChatCommand, Protocol};
     use crate::nat::{connect, create_login_data, send_msg, start_tcp_server, EnvConfig};
-    use crate::protocol_factory::{HandleProtocolData, HandleProtocolFactory, LoginReqHandler};
+    use crate::protocol_factory::{HandleProtocolData, HandleProtocolFactory, LoginReqHandler,HandleProtocolFactoryTemplate};
     use serial_test::serial;
     use std::collections::HashMap;
     use std::{thread, time};
@@ -254,14 +255,9 @@ mod tests {
         // create config
         let env_config = EnvConfig::new();
 
-        let mut allHandler: HashMap<ChatCommand, Box<dyn HandleProtocolData>> = HashMap::new();
+        let template=TemplateImpl{};
 
-        allHandler.insert(ChatCommand::LoginReq, Box::new(LoginReqHandler {}));
-
-        // get factory
-        let fatory = HandleProtocolFactory { allHandler };
-
-        start_tcp_server(&env_config, &fatory).await.unwrap();
+        start_tcp_server(&env_config, &template).await.unwrap();
     }
 
     #[tokio::test]
@@ -277,5 +273,24 @@ mod tests {
         send_msg(&mut conn, &data).await.unwrap();
     }
 
+
+    struct TemplateImpl{
+
+    }
+
+
+    impl HandleProtocolFactoryTemplate for TemplateImpl{
+
+        fn getFactory(&self)->HandleProtocolFactory{
+
+            let mut allHandler: HashMap<ChatCommand, Box<dyn HandleProtocolData>> = HashMap::new();
+
+            allHandler.insert(ChatCommand::LoginReq, Box::new(LoginReqHandler {}));
+
+            // get factory
+            HandleProtocolFactory { allHandler }
+
+        }
+    }
 
 }

@@ -15,6 +15,11 @@ impl HandleProtocolData for LoginReqHandler {
     }
 }
 
+pub trait  HandleProtocolFactoryTemplate{
+    fn getFactory(&self)->HandleProtocolFactory;
+}
+
+
 pub struct HandleProtocolFactory {
     pub allHandler: HashMap<ChatCommand, Box<dyn HandleProtocolData>>,
 }
