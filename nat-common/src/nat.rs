@@ -209,7 +209,7 @@ fn handle_pkg(pkg: &Protocol, factory: &HandleProtocolFactory) {
     println!("{:?}", pkg);
 
     // convert bytes to struct by type
-    let data_type = pkg.data_type.as_ref().unwrap()[0];
+    let data_type = pkg.data_type.as_ref().unwrap()[0].clone();
     let command = ChatCommand::to_self(data_type);
     let handler = factory.get_handler(&command);
     handler.handle(pkg.data.as_ref().unwrap());

@@ -207,8 +207,8 @@ impl Protocol {
         if !self.check_field_fill(&ProtocolFieldNameEnum::data_len) {
             panic!("field <data_len> not be set value !");
         } else {
-            let x = self.data_len.clone().unwrap();
-            let value = [x[0], x[1], x[2], x[3]];
+            let x = self.data_len.as_ref().unwrap();
+            let value = [x[0].clone(), x[1].clone(), x[2].clone(), x[3].clone()];
             transform_array_of_u8_to_u32(value) as usize
         }
     }
