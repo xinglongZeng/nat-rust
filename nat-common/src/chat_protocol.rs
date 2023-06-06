@@ -1,41 +1,15 @@
+use core::cmp::Eq;
 use derive_more::Display;
-use enum_index::IndexEnum;
+use enum_index::{EnumIndex, IndexEnum};
 use enum_index_derive::{EnumIndex, IndexEnum};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-
 static MAX_DATA_LEN: u64 = u32::MAX as u64;
-
-pub trait HandleProtocolData {
-    fn handle(&self, a: &Vec<u8>);
-}
-
-pub struct HandleProtocolFactory {}
-
-impl HandleProtocolFactory {
-    pub fn new_handler(a: &ChatCommand) -> Box<dyn HandleProtocolData> {
-        match *a {
-            ChatCommand::LoginReq => Box::new(LoginReqHandler {}),
-
-            _ => panic!("Not support {:?}", a),
-        }
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LoginReqData {
     pub account: String,
     pub pwd: String,
-}
-
-struct LoginReqHandler {}
-
-impl HandleProtocolData for LoginReqHandler {
-    // todo:
-    fn handle(&self, a: &Vec<u8>) {
-        let req: LoginReqData = bincode::deserialize(a).unwrap();
-        println!("LoginReqHandler received data :{:?}  ", req);
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,13 +45,21 @@ pub enum ProtocolFieldNameEnum {
     data,
 }
 
-#[derive(Debug, Clone, EnumIndex, IndexEnum)]
+#[derive(Debug, Clone, EnumIndex, IndexEnum, Hash)]
 pub enum ChatCommand {
     LoginReq,
     LoginResp,
     Chat,
     ReadyNat,
 }
+
+impl PartialEq<Self> for ChatCommand {
+    fn eq(&self, other: &Self) -> bool {
+        self.enum_index() == other.enum_index()
+    }
+}
+
+impl Eq for ChatCommand {}
 
 impl ChatCommand {
     pub fn to_data_type(self) -> Vec<u8> {

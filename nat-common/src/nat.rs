@@ -1,7 +1,5 @@
-use crate::chat_protocol::{
-    calculate_len_by_data, ChatCommand, HandleProtocolData, HandleProtocolFactory, LoginReqData,
-    Protocol,
-};
+use crate::chat_protocol::{calculate_len_by_data, ChatCommand, LoginReqData, Protocol};
+use crate::protocol_factory::HandleProtocolFactory;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
@@ -9,7 +7,7 @@ use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-struct EnvConfig {
+pub struct EnvConfig {
     host: String,
     port: String,
     server_address: String,
@@ -46,12 +44,12 @@ impl EnvConfig {
     }
 }
 
-pub async fn start_tcp_server() -> tokio::io::Result<()> {
-    // get address from file of env
-    let env_config = EnvConfig::new();
-
+pub async fn start_tcp_server(
+    envConfig: &EnvConfig,
+    fatory: &HandleProtocolFactory,
+) -> tokio::io::Result<()> {
     // start tcp listener
-    let listener = TcpListener::bind(get_local_addres_from_config(&env_config)).await?;
+    let listener = TcpListener::bind(get_local_addres_from_config(envConfig)).await?;
 
     // cache all connect. ( note: maybe this struct is not thread safety enough, it depend test result for change)
     let mut all_conn_cache: HashMap<SocketAddr, ProtocolCacheData> = HashMap::new();
@@ -59,10 +57,8 @@ pub async fn start_tcp_server() -> tokio::io::Result<()> {
     loop {
         let (mut stream, address) = listener.accept().await.unwrap();
 
-        parse_tcp_stream(stream, address, &mut all_conn_cache).await;
+        parse_tcp_stream(stream, address, &mut all_conn_cache, fatory).await;
     }
-
-    // todo: connect  server_web for login
 }
 
 // 连接到指定地址
@@ -144,6 +140,7 @@ pub async fn parse_tcp_stream(
     mut stream: TcpStream,
     address: SocketAddr,
     all_cache: &mut HashMap<SocketAddr, ProtocolCacheData>,
+    factory: &HandleProtocolFactory,
 ) {
     match all_cache.get_mut(&address) {
         Some(t) => match t.data {
@@ -183,7 +180,7 @@ pub async fn parse_tcp_stream(
         index += len.clone();
 
         if pkg.completion() {
-            handle_pkg(&pkg);
+            handle_pkg(&pkg, factory);
         }
     }
 }
@@ -208,25 +205,26 @@ fn fill(pkg: &mut Protocol, all_bytes: &Vec<u8>, mut index: usize, total_len: us
 }
 
 // todo:
-fn handle_pkg(pkg: &Protocol) {
+fn handle_pkg(pkg: &Protocol, factory: &HandleProtocolFactory) {
     println!("{:?}", pkg);
 
     // convert bytes to struct by type
     let data_type = pkg.data_type.as_ref().unwrap()[0];
     let command = ChatCommand::to_self(data_type);
-    let handler = HandleProtocolFactory::new_handler(&command);
+    let handler = factory.get_handler(&command);
     handler.handle(pkg.data.as_ref().unwrap());
 }
-
-// todo:
-fn handle_login_req(data: &LoginReqData) {}
 
 // --------------  test -------------
 #[cfg(test)]
 mod tests {
-    use crate::chat_protocol::Protocol;
+    use crate::chat_protocol::{ChatCommand, Protocol};
     use crate::nat::{connect, create_login_data, send_msg, start_tcp_server, EnvConfig};
-
+    use crate::protocol_factory::{HandleProtocolData, HandleProtocolFactory, LoginReqHandler};
+    use serial_test::serial;
+    use std::collections::HashMap;
+    use std::{thread, time};
+    use tokio::task;
     // #[test]
     // fn start_server() {
     //     tokio::runtime::Builder::new_current_thread()
@@ -240,26 +238,6 @@ mod tests {
     // }
 
     #[test]
-    fn test_connect() {
-        tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(2)
-            .enable_all()
-            .build()
-            .unwrap()
-            .block_on(async {
-                let mut conn = connect(&"127.0.0.1:19999".to_string())
-                    .await
-                    .expect("Test: test_connect Fail!");
-                let config = EnvConfig::new();
-                let data = create_login_data(&config);
-                println!("data size:{}", data.len());
-                send_msg(&mut conn, &data)
-                    .await
-                    .expect("Test:send_msg Fail");
-            })
-    }
-
-    #[test]
     fn test_create_login_data() {
         let config = EnvConfig::new();
         let data = create_login_data(&config);
@@ -267,4 +245,37 @@ mod tests {
         // let result : Protocol =bincode::deserialize(&data[..]).expect("TODO: panic deserialize");
         // println!("{:?}",result);
     }
+
+    ///
+    /// this unit test will start thread for server ,and run it forever. so manually stop it if run this unit test.
+    ///
+    #[tokio::test]
+    async fn test_start_server() {
+        // create config
+        let env_config = EnvConfig::new();
+
+        let mut allHandler: HashMap<ChatCommand, Box<dyn HandleProtocolData>> = HashMap::new();
+
+        allHandler.insert(ChatCommand::LoginReq, Box::new(LoginReqHandler {}));
+
+        // get factory
+        let fatory = HandleProtocolFactory { allHandler };
+
+        start_tcp_server(&env_config, &fatory).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_send_msg() {
+        let mut conn = connect(&"127.0.0.1:19999".to_string())
+            .await
+            .expect("Test: test_connect Fail!");
+
+        let config = EnvConfig::new();
+
+        let data = create_login_data(&config);
+
+        send_msg(&mut conn, &data).await.unwrap();
+    }
+
+
 }
