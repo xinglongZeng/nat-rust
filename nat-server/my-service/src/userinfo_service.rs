@@ -1,65 +1,23 @@
-use sea_orm::DbErr;
-use ::my_entity::{userinfo, userinfo::Entity as Entity};
-use sea_orm::*;
-use sea_orm::ActiveValue::Set;
-use my_entity::userinfo::Model;
+use my_entity::userinfo;
+use nat_common::chat_protocol::LoginReqData;
+use crate::userinfo_dao;
+use tokio::runtime::Runtime;
 
-pub struct  Dao{
+struct Service{
+    dao: &'static userinfo_dao::Dao,
+    rt:  &'static Runtime,
 }
 
-impl Dao{
+impl Service {
 
-    // find all userinfo
-    pub async fn find_all(db: &DbConn) -> Result<Vec<Model>, DbErr> {
-        Entity::find().all(db).await
-    }
-
-    // find page in userinfo
-    pub async fn find_in_page(db: &DbConn, page:u64, page_size: u64,  ) -> Result<(Vec<Model>, u64), DbErr> {
-
-        let paginator =Entity::find()
-            .order_by_asc(userinfo::Column::Id)
-            .paginate(db,page_size);
-
-        let num_pages = paginator.num_pages().await?;
-
-        paginator.fetch_page(page-1).await.map(|p| (p,num_pages))
-    }
-
-
-    // find by name
-    pub async fn find_by_name(db: &DbConn,name:String) -> Result<Option<Model>, DbErr> {
-        Entity::find()
-            .filter(userinfo::Column::Name.eq(name))
-            .one(db)
-            .await
-    }
-
-    // find like name
-    pub async fn find_like_name(db: &DbConn, name:String) -> Result<Vec<Model>, DbErr> {
-        Entity::find()
-            .filter(userinfo::Column::Name.contains(name.as_str()))
-            .all(db)
-            .await
-    }
-
-
-    // update by id
-    pub async fn update_by_id(db: &DbConn, id:i32, param :  Model) -> Result<Model, DbErr> {
-
-        let data : userinfo::ActiveModel = Entity::find_by_id(id)
-            .one(db)
-            .await?
-            .ok_or(DbErr::Custom(format!("cannot find userInfo ,id:{id}")))
-            .map(Into::into)?;
-
-        userinfo::ActiveModel{
-            id: data.id,
-            name: Set(param.name.to_owned()),
-            pwd: Set(param.pwd.to_owned()),
+    fn find_by_account_and_pwd(&self, param : &LoginReqData)->Result<Option<userinfo::Model>,&'static str>{
+        let dao= self.dao;
+        let rt = self.rt;
+        let result =rt.block_on(dao.find_by_name_and_pwd(param.account.clone(), param.pwd.clone()));
+        match result {
+            Ok(t)=>{ Ok(t)},
+            Err(e)=>{ Err(e.to_string().as_str()) }
         }
-            .update(db)
-            .await
     }
 
 }

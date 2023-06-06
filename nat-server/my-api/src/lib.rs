@@ -9,8 +9,8 @@ use env_logger::Env;
 use listenfd::ListenFd;
 use my_service::{
     sea_orm::{Database, DatabaseConnection},
-    userinfo_service,
-    car_service,
+    userinfo_dao,
+    car_dao,
 };
 
 const PAGE_SIZE :u64 = 5;
@@ -115,7 +115,7 @@ async fn user_index(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpR
     let page_size = params.page_size.unwrap_or(PAGE_SIZE);
 
     // invoke service to query data . 调用service来查询分页数据
-    let  (page_data,num_page)= userinfo_service::Dao::find_in_page(conn,page,page_size)
+    let  (page_data,num_page)= userinfo_dao::Dao::find_in_page(conn, page, page_size)
         .await
         .expect("Cannot find user_index in page");
 
