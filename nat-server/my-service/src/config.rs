@@ -17,9 +17,5 @@ impl HandleProtocolData for ServerLoginReqHandler {
     }
 }
 
-struct ServerTemplateImpl{
-
-}
-
 
 
