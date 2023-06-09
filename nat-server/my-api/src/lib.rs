@@ -1,7 +1,5 @@
-use std::env;
-use actix_web::{
-    error, get, middleware,middleware::Logger, post, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result,
-};
+use std::{env, thread};
+use actix_web::{error, get, middleware, middleware::Logger, post, web, App, Error, HttpRequest, HttpResponse, HttpServer, Result, Responder};
 use tera::Tera;
 use actix_files::Files as Fs;
 use actix_web::web::to;
@@ -14,8 +12,15 @@ use my_service::{
     car_dao,
 };
 use nat_common::chat_protocol::{ChatCommand, LoginReqData};
-use nat_common::nat::{EnvConfig, start_tcp_server};
+use nat_common::nat::{ start_tcp_server, TcpSocketConfig};
 use nat_common::protocol_factory::{HandleProtocolData, HandleProtocolFactory};
+use actix_files::NamedFile;
+use derive_more::{Display};
+use std::fmt::{Debug};
+use actix_web::http::header::ContentType;
+use actix_web::http::StatusCode;
+use log::debug;
+use tokio::runtime::Runtime;
 
 const PAGE_SIZE :u64 = 5;
 
@@ -33,40 +38,45 @@ pub struct PageParams {
 
 
 pub fn main() {
-    let result = start();
 
-    if let Some(err) = result.err(){
-        println!("Error :{err}");
-    }
+    // 在第一个线程内创建一个多线程的runtime
+    let t1 = thread::spawn(||{
+        let task = api_start_tcp_server();
+        if let Some(err) = task.err(){
+            println!("api_start_tcp_server run Fail!  Error :{err}");
+        }
+    });
+
+    // 在一个线程内创建一个多线程的runtime
+    let t2 = thread::spawn(||{
+        let task2 = api_start_web_server();
+        if let Some(err) = task2.err(){
+            println!("api_start_web_server run Fail!  Error :{err}");
+        }
+    });
+
+    t1.join().unwrap();
+    t2.join().unwrap();
+
 }
 
 
 
-#[actix_web::main]
-async fn start()->std::io::Result<()>{
-
-    api_start_tcp_server().await;
-
-    api_start_web_server().await?;
-
-    Ok(())
-}
-
-
-async fn api_start_tcp_server(){
+#[tokio::main]
+async fn api_start_tcp_server()->std::io::Result<()>{
     // create config
-    let env_config = EnvConfig::new();
+    let config = TcpSocketConfig::new();
 
     let mut factory = HandleProtocolFactory::new();
 
     factory.registry_handler(ChatCommand::LoginReq, Box::new(ServerLoginReqHandler {}));
 
-    start_tcp_server(&env_config, &factory).await.unwrap();
+    start_tcp_server(&config, &factory).await
 
 }
 
 
-
+#[actix_web::main]
 async fn api_start_web_server()->std::io::Result<()>{
     // set logger level to debug
     // env_logger::init_from_env(Env::default().default_filter_or("debug"));
@@ -80,8 +90,8 @@ async fn api_start_web_server()->std::io::Result<()>{
     // get env vars   读取.env文件中的变量，相当于读取配置文件
     dotenvy::dotenv().ok();
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set in .env file");
-    let host = env::var("HOST").expect("HOST is not set in .env file");
-    let port = env::var("PORT").expect("PORT is not set in .env file");
+    let host = env::var("WEB_HOST").expect("HOST is not set in .env file");
+    let port = env::var("WEB_PORT").expect("PORT is not set in .env file");
     let server_url = format!("{host}:{port}");
 
     // establish connection to database.   建立与数据的链接
@@ -114,17 +124,10 @@ async fn api_start_web_server()->std::io::Result<()>{
 
     println!("Starting my-api server at {server_url}");
 
-    server.run().await?;
+    server.run().await
 
-    Ok(())
 }
 
-
-
-fn init(cfg: &mut web::ServiceConfig){
-
-    cfg.service(user_index);
-}
 
 #[get("/")]
 async fn user_index(req: HttpRequest, data: web::Data<AppState>) -> Result<HttpResponse, Error>{
@@ -194,3 +197,75 @@ impl HandleProtocolData for ServerLoginReqHandler {
     }
 }
 
+
+
+#[derive(Debug, Display, derive_more::Error)]
+enum MyError {
+    #[display(fmt = "internal error")]
+    InternalError,
+
+    #[display(fmt = "bad request")]
+    BadClientData,
+
+    #[display(fmt = "timeout")]
+    Timeout,
+
+    #[display(fmt = "Validation error on field: {}", field)]
+    ValidationError { field: String },
+}
+
+impl error::ResponseError for MyError {
+    fn error_response(&self) -> HttpResponse {
+        HttpResponse::build(self.status_code())
+            .insert_header(ContentType::html())
+            .body(self.to_string())
+    }
+
+    fn status_code(&self) -> StatusCode {
+        match *self {
+            MyError::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
+            MyError::BadClientData => StatusCode::BAD_REQUEST,
+            MyError::Timeout => StatusCode::GATEWAY_TIMEOUT,
+            MyError::ValidationError { .. } => StatusCode::BAD_REQUEST,
+        }
+    }
+}
+
+#[derive(Serialize,Deserialize,Debug,Clone)]
+struct UserInfoVo{
+    name:String,
+    pwd:String,
+}
+
+
+#[derive(Serialize,Deserialize,Debug,Clone)]
+struct UserInfo{
+    name:String,
+    pwd:String,
+}
+
+
+
+// registry account
+#[post("/registry_account")]
+async fn registry_account(user_info: web::Json<UserInfo>)->Result<String,MyError>{
+    debug!("registry_account data:{:?} ",user_info);
+    //todo:
+    Ok(format!("registry Successful! name:{}!", user_info.name))
+    //Err(MyError::ValidationError { field:  format!("name error ! name:{}!", user_info.name) })
+}
+
+#[get("/account_index")]
+async fn account_index()-> impl Responder{
+    NamedFile::open_async("static/index.html").await
+}
+
+
+
+
+
+fn init(cfg: &mut web::ServiceConfig){
+    cfg.service(user_index);
+    cfg.service(registry_account);
+    cfg.service(account_index);
+}

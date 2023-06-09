@@ -7,14 +7,33 @@ use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
-pub struct EnvConfig {
-    host: String,
-    port: String,
+pub struct ClientEnvConfig {
+    pub socket_config: TcpSocketConfig,
     server_address: String,
     account: String,
     password: String,
     protocol_version: String,
 }
+
+pub struct TcpSocketConfig {
+    tcp_host: String,
+    tcp_port: String,
+}
+
+impl TcpSocketConfig {
+
+    pub fn new()->TcpSocketConfig{
+
+        dotenvy::dotenv().ok();
+
+        let tcp_host = env::var("TCP_HOST").expect("HOST is not set in .env file");
+
+        let tcp_port = env::var("TCP_PORT").expect("PORT is not set in .env file");
+
+        TcpSocketConfig{ tcp_host,tcp_port }
+    }
+}
+
 
 pub struct ProtocolCacheData {
     stream: TcpStream,
@@ -22,20 +41,19 @@ pub struct ProtocolCacheData {
     data: Option<Protocol>,
 }
 
-impl EnvConfig {
-    pub fn new() -> Self {
+impl ClientEnvConfig {
+    pub fn new() -> ClientEnvConfig {
+        let socket_config = TcpSocketConfig::new();
         dotenvy::dotenv().ok();
-        let host = env::var("HOST").expect("HOST is not set in .env file");
-        let port = env::var("PORT").expect("PORT is not set in .env file");
         let server_address =
             env::var("SERVER_ADDRESS").expect("SERVER_ADDRESS is not set in .env file");
         let protocol_version =
             env::var("PROTOCOL_VERSION").expect("PROTOCOL_VERSION is not set in .env file");
         let account = env::var("ACCOUNT").expect("ACCOUNT is not set in .env file");
         let password = env::var("PASSWORD").expect("PWD is not set in .env file");
-        EnvConfig {
-            host,
-            port,
+
+        ClientEnvConfig {
+            socket_config,
             server_address,
             account,
             password,
@@ -45,7 +63,7 @@ impl EnvConfig {
 }
 
 pub async fn start_tcp_server(
-    env_config: &EnvConfig,
+    env_config: &TcpSocketConfig,
     factory: &HandleProtocolFactory,
 ) -> tokio::io::Result<()> {
     // start tcp listener
@@ -55,7 +73,7 @@ pub async fn start_tcp_server(
     let mut all_conn_cache: HashMap<SocketAddr, ProtocolCacheData> = HashMap::new();
 
     loop {
-        let (mut stream, address) = listener.accept().await.unwrap();
+        let (stream, address) = listener.accept().await.unwrap();
 
         parse_tcp_stream(stream, address, &mut all_conn_cache, factory).await;
     }
@@ -68,7 +86,7 @@ pub async fn connect(address: &String) -> Result<TcpStream, Box<dyn Error>> {
     Ok(conn)
 }
 
-async fn login_to_server(config: &EnvConfig) -> Result<TcpStream, Box<dyn Error>> {
+async fn login_to_server(config: &ClientEnvConfig) -> Result<TcpStream, Box<dyn Error>> {
     let mut serv_conn = connect(&config.server_address).await?;
 
     let data = create_login_data(config);
@@ -78,7 +96,7 @@ async fn login_to_server(config: &EnvConfig) -> Result<TcpStream, Box<dyn Error>
     Ok(serv_conn)
 }
 
-fn create_login_data(config: &EnvConfig) -> Vec<u8> {
+fn create_login_data(config: &ClientEnvConfig) -> Vec<u8> {
     let login_data = LoginReqData {
         account: config.account.clone(),
         pwd: config.password.clone(),
@@ -129,10 +147,10 @@ fn get_local_address() -> String {
     host
 }
 
-fn get_local_addres_from_config(config: &EnvConfig) -> String {
-    let mut address = config.host.clone();
+fn get_local_addres_from_config(config: &TcpSocketConfig) -> String {
+    let mut address = config.tcp_host.clone();
     address.push_str(":");
-    address.push_str(config.port.clone().as_str());
+    address.push_str(config.tcp_port.clone().as_str());
     address
 }
 
@@ -219,7 +237,7 @@ fn handle_pkg(pkg: &Protocol, factory: &HandleProtocolFactory) {
 #[cfg(test)]
 mod tests {
     use crate::chat_protocol::{ChatCommand, Protocol};
-    use crate::nat::{connect, create_login_data, send_msg, start_tcp_server, EnvConfig};
+    use crate::nat::{connect, create_login_data, send_msg, start_tcp_server, ClientEnvConfig};
     use crate::protocol_factory::{HandleProtocolData, HandleProtocolFactory, LoginReqHandler};
     use serial_test::serial;
     use std::collections::HashMap;
@@ -239,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_create_login_data() {
-        let config = EnvConfig::new();
+        let config = ClientEnvConfig::new();
         let data = create_login_data(&config);
         assert!(data.len() > 0);
         // let result : Protocol =bincode::deserialize(&data[..]).expect("TODO: panic deserialize");
@@ -252,13 +270,13 @@ mod tests {
     #[tokio::test]
     async fn test_start_server() {
         // create config
-        let env_config = EnvConfig::new();
+        let env_config = ClientEnvConfig::new();
 
         let mut factory = HandleProtocolFactory::new();
 
         factory.registry_handler(ChatCommand::LoginReq, Box::new(LoginReqHandler {}));
 
-        start_tcp_server(&env_config, &factory).await.unwrap();
+        start_tcp_server(&env_config.socket_config, &factory).await.unwrap();
     }
 
     #[tokio::test]
@@ -267,7 +285,7 @@ mod tests {
             .await
             .expect("Test: test_connect Fail!");
 
-        let config = EnvConfig::new();
+        let config = ClientEnvConfig::new();
 
         let data = create_login_data(&config);
 
