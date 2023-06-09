@@ -4,3 +4,4 @@
 target/
 entity/target/
 ../.idea
+**/Cargo.lock
