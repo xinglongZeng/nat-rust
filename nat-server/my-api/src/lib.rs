@@ -4,6 +4,7 @@ use actix_web::{
 };
 use tera::Tera;
 use actix_files::Files as Fs;
+use actix_web::web::to;
 use serde::{Deserialize, Serialize};
 use env_logger::Env;
 use listenfd::ListenFd;
@@ -12,6 +13,9 @@ use my_service::{
     userinfo_dao,
     car_dao,
 };
+use nat_common::chat_protocol::{ChatCommand, LoginReqData};
+use nat_common::nat::{EnvConfig, start_tcp_server};
+use nat_common::protocol_factory::{HandleProtocolData, HandleProtocolFactory};
 
 const PAGE_SIZE :u64 = 5;
 
@@ -41,6 +45,29 @@ pub fn main() {
 #[actix_web::main]
 async fn start()->std::io::Result<()>{
 
+    api_start_tcp_server().await;
+
+    api_start_web_server().await?;
+
+    Ok(())
+}
+
+
+async fn api_start_tcp_server(){
+    // create config
+    let env_config = EnvConfig::new();
+
+    let mut factory = HandleProtocolFactory::new();
+
+    factory.registry_handler(ChatCommand::LoginReq, Box::new(ServerLoginReqHandler {}));
+
+    start_tcp_server(&env_config, &factory).await.unwrap();
+
+}
+
+
+
+async fn api_start_web_server()->std::io::Result<()>{
     // set logger level to debug
     // env_logger::init_from_env(Env::default().default_filter_or("debug"));
 
@@ -86,10 +113,13 @@ async fn start()->std::io::Result<()>{
     };
 
     println!("Starting my-api server at {server_url}");
+
     server.run().await?;
 
     Ok(())
 }
+
+
 
 fn init(cfg: &mut web::ServiceConfig){
 
@@ -150,3 +180,17 @@ async fn not_found(data: web::Data<AppState>, request: HttpRequest) -> Result<Ht
 
     Ok(HttpResponse::Ok().content_type("text/html").body(body))
 }
+
+// todo: not link HandleProtocolFactoryTemplate
+pub struct ServerLoginReqHandler {
+
+}
+
+impl HandleProtocolData for ServerLoginReqHandler {
+    // todo:
+    fn handle(&self, a: &Vec<u8>) {
+        let req: LoginReqData = bincode::deserialize(a).unwrap();
+        println!("LoginReqHandler received data :{:?}  ", req);
+    }
+}
+
