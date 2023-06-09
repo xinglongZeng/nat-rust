@@ -37,7 +37,7 @@ pub struct PageParams {
 }
 
 
-pub fn main() {
+pub fn main2() {
 
     // 在第一个线程内创建一个多线程的runtime
     let t1 = thread::spawn(||{
@@ -269,3 +269,5 @@ fn init(cfg: &mut web::ServiceConfig){
     cfg.service(registry_account);
     cfg.service(account_index);
 }
+
+
