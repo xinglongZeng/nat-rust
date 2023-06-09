@@ -37,7 +37,7 @@ pub struct PageParams {
 }
 
 
-pub fn main2() {
+pub fn main() {
 
     // 在第一个线程内创建一个多线程的runtime
     let t1 = thread::spawn(||{
@@ -104,7 +104,7 @@ async fn api_start_web_server()->std::io::Result<()>{
     let state = AppState{templates,conn};
 
     // create server
-    let mut server = HttpServer::new( move || {
+    let mut server = HttpServer::new( move  | | {
         App::new()
             // mount dir static
             .service(Fs::new("static","./my-api/static"))
