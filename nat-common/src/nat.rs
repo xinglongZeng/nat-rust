@@ -3,6 +3,7 @@ use crate::protocol_factory::{HandleProtocolFactory};
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
+use std::future::Future;
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -198,7 +199,7 @@ pub async fn parse_tcp_stream(
         index += len.clone();
 
         if pkg.completion() {
-            handle_pkg(&pkg, factory);
+            handle_pkg(&pkg, factory).await;
         }
     }
 }
@@ -223,14 +224,14 @@ fn fill(pkg: &mut Protocol, all_bytes: &Vec<u8>, mut index: usize, total_len: us
 }
 
 // todo:
-fn handle_pkg(pkg: &Protocol, factory: &HandleProtocolFactory) {
+async fn handle_pkg(pkg: &Protocol, factory: &HandleProtocolFactory) {
     println!("{:?}", pkg);
 
     // convert bytes to struct by type
     let data_type = pkg.data_type.as_ref().unwrap()[0].clone();
     let command = ChatCommand::to_self(data_type);
     let handler = factory.get_handler(&command);
-    handler.handle(pkg.data.as_ref().unwrap());
+    handler.handle(pkg.data.as_ref().unwrap()).await;
 }
 
 // --------------  test -------------

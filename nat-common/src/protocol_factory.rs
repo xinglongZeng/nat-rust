@@ -1,21 +1,28 @@
 use crate::chat_protocol::{ChatCommand, LoginReqData};
 use std::collections::HashMap;
+use std::future::Future;
 use log::{ debug};
 
 pub trait HandleProtocolData {
-    fn handle(&self, a: &Vec<u8>);
+    fn handle<T:Future>(&self, a: &Vec<u8>)-> T;
 }
 
 // domo
-pub struct LoginReqHandler {}
+pub struct LoginReqHandler {
+
+}
 
 // domo
 impl HandleProtocolData for LoginReqHandler {
     // todo:
-    fn handle(&self, a: &Vec<u8>) {
-        let req: LoginReqData = bincode::deserialize(a).unwrap();
-        println!("LoginReqHandler received data :{:?}  ", req);
+    fn handle<T:Future>(&self, a: &Vec<u8>) -> T{
+       do_handle(a)
     }
+}
+
+async fn do_handle(a: &Vec<u8>){
+    let req: LoginReqData = bincode::deserialize(a).unwrap();
+    println!("LoginReqHandler received data :{:?}  ", req);
 }
 
 

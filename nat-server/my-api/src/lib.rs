@@ -6,17 +6,16 @@ use actix_web::web::to;
 use serde::{Deserialize, Serialize};
 use env_logger::Env;
 use listenfd::ListenFd;
-use my_service::{
-    sea_orm::{Database, DatabaseConnection},
-    userinfo_dao,
-    car_dao,
-};
+use my_service::{sea_orm::{Database, DatabaseConnection}, userinfo_dao, car_dao, userinfo_service};
+
 use nat_common::chat_protocol::{ChatCommand, LoginReqData};
 use nat_common::nat::{ start_tcp_server, TcpSocketConfig};
 use nat_common::protocol_factory::{HandleProtocolData, HandleProtocolFactory};
 use actix_files::NamedFile;
 use derive_more::{Display};
 use std::fmt::{Debug};
+use std::future::Future;
+use std::sync::Arc;
 use actix_web::http::header::ContentType;
 use actix_web::http::StatusCode;
 use log::debug;
@@ -27,7 +26,8 @@ const PAGE_SIZE :u64 = 5;
 #[derive(Debug, Clone)]
 struct AppState {
     templates: tera::Tera,
-    conn: DatabaseConnection,
+    // conn: DatabaseConnection,
+    conn: Arc<DatabaseConnection>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -40,12 +40,14 @@ pub struct PageParams {
 pub fn main() {
 
     // 在第一个线程内创建一个多线程的runtime
-    let t1 = thread::spawn(||{
-        let task = api_start_tcp_server();
-        if let Some(err) = task.err(){
-            println!("api_start_tcp_server run Fail!  Error :{err}");
-        }
-    });
+    // let t1 = thread::spawn(||{
+    //     let task = api_start_tcp_server();
+    //     if let Some(err) = task.err(){
+    //         println!("api_start_tcp_server run Fail!  Error :{err}");
+    //     }
+    // });
+
+
 
     // 在一个线程内创建一个多线程的runtime
     let t2 = thread::spawn(||{
@@ -63,13 +65,15 @@ pub fn main() {
 
 
 #[tokio::main]
-async fn api_start_tcp_server()->std::io::Result<()>{
+async fn api_start_tcp_server(arc: Arc<DatabaseConnection>) ->std::io::Result<()>{
     // create config
     let config = TcpSocketConfig::new();
 
     let mut factory = HandleProtocolFactory::new();
 
-    factory.registry_handler(ChatCommand::LoginReq, Box::new(ServerLoginReqHandler {}));
+    let service = &userinfo_service::Service{db: &arc};
+
+    factory.registry_handler(ChatCommand::LoginReq, Box::new(  ServerLoginReqHandler {service}));
 
     start_tcp_server(&config, &factory).await
 
@@ -97,11 +101,13 @@ async fn api_start_web_server()->std::io::Result<()>{
     // establish connection to database.   建立与数据的链接
     let conn = Database::connect(&db_url).await.unwrap();
 
+    let arc_conn = Arc::new(conn);
+
     // load tera templates
     let templates = Tera::new(concat!(env!("CARGO_MANIFEST_DIR"), "/templates/**/*")).unwrap();
 
     // build app state. 构建app的state，以便各个线程共享AppState
-    let state = AppState{templates,conn};
+    let state = AppState{templates,conn: arc_conn.clone()};
 
     // create server
     let mut server = HttpServer::new( move  | | {
@@ -123,6 +129,17 @@ async fn api_start_web_server()->std::io::Result<()>{
     };
 
     println!("Starting my-api server at {server_url}");
+
+
+    // 在第一个线程内创建一个多线程的runtime
+    let t1 = thread::spawn(||{
+        let task = api_start_tcp_server(arc_conn.clone());
+        if let Some(err) = task.err(){
+            println!("api_start_tcp_server run Fail!  Error :{err}");
+        }
+    });
+
+    t1.join().unwrap();
 
     server.run().await
 
@@ -186,14 +203,15 @@ async fn not_found(data: web::Data<AppState>, request: HttpRequest) -> Result<Ht
 
 // todo: not link HandleProtocolFactoryTemplate
 pub struct ServerLoginReqHandler {
-
+    service: &'static userinfo_service::Service,
 }
 
 impl HandleProtocolData for ServerLoginReqHandler {
     // todo:
-    fn handle(&self, a: &Vec<u8>) {
+    fn handle<T:Future>(&self, a: &Vec<u8>)-> T {
         let req: LoginReqData = bincode::deserialize(a).unwrap();
         println!("LoginReqHandler received data :{:?}  ", req);
+        self.service.find_by_account_and_pwd(&req)
     }
 }
 

@@ -4,6 +4,8 @@ use enum_index::{EnumIndex, IndexEnum};
 use enum_index_derive::{EnumIndex, IndexEnum};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+
+
 static MAX_DATA_LEN: u64 = u32::MAX as u64;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -11,6 +13,8 @@ pub struct LoginReqData {
     pub account: String,
     pub pwd: String,
 }
+
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Protocol {
