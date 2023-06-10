@@ -1,8 +1,8 @@
 mod prepare;
 
-use service::{Mutation, Query};
 use entity::post;
 use prepare::prepare_mock_db;
+use service::{Mutation, Query};
 
 #[tokio::test]
 async fn main() {
@@ -29,8 +29,8 @@ async fn main() {
                 pwd: "pwd D".to_owned(),
             },
         )
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         assert_eq!(
             post,
@@ -52,8 +52,8 @@ async fn main() {
                 pwd: "New pwd A".to_owned(),
             },
         )
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         assert_eq!(
             post,

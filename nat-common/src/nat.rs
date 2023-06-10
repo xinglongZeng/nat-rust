@@ -17,8 +17,8 @@ pub struct ClientEnvConfig {
 }
 
 pub struct TcpSocketConfig {
-    tcp_host: String,
-    tcp_port: String,
+    pub tcp_host: String,
+    pub tcp_port: String,
 }
 
 impl TcpSocketConfig {
@@ -27,12 +27,17 @@ impl TcpSocketConfig {
 
         dotenvy::dotenv().ok();
 
-        let tcp_host = env::var("TCP_HOST").expect("HOST is not set in .env file");
+        let tcp_host = env::var("TCP_HOST").expect("TCP_HOST is not set in .env file");
 
-        let tcp_port = env::var("TCP_PORT").expect("PORT is not set in .env file");
+        let tcp_port = env::var("TCP_PORT").expect("TCP_PORT is not set in .env file");
 
         TcpSocketConfig{ tcp_host,tcp_port }
     }
+
+    pub fn get_url(&self)->String{
+        format!("{}:{}",self.tcp_host,self.tcp_port)
+    }
+
 }
 
 
@@ -282,7 +287,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_msg() {
-        let mut conn = connect(&"127.0.0.1:19999".to_string())
+        let mut conn = connect(&"127.0.0.1:9999".to_string())
             .await
             .expect("Test: test_connect Fail!");
 

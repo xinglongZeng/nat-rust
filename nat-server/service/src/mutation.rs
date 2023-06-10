@@ -13,8 +13,8 @@ impl Mutation {
             pwd: Set(form_data.pwd.to_owned()),
             ..Default::default()
         }
-            .save(db)
-            .await
+        .save(db)
+        .await
     }
 
     pub async fn update_post_by_id(
@@ -33,8 +33,8 @@ impl Mutation {
             name: Set(form_data.name.to_owned()),
             pwd: Set(form_data.pwd.to_owned()),
         }
-            .update(db)
-            .await
+        .update(db)
+        .await
     }
 
     pub async fn delete_post(db: &DbConn, id: i32) -> Result<DeleteResult, DbErr> {
