@@ -1,13 +1,10 @@
 use actix_files::Files as Fs;
-use actix_web::web::to;
 use actix_web::{
-    error, get, middleware, middleware::Logger, post, web, App, Error, HttpRequest, HttpResponse,
+    error, get, middleware, post, web, App, Error, HttpRequest, HttpResponse,
     HttpServer, Responder, Result,
 };
-use env_logger::Env;
 use listenfd::ListenFd;
 use my_service::{
-    car_dao,
     sea_orm::{Database, DatabaseConnection},
     userinfo_dao, userinfo_service,
 };
@@ -25,11 +22,9 @@ use nat_common::chat_protocol::{ChatCommand, LoginReqData};
 use nat_common::nat::{start_tcp_server,TcpSocketConfig};
 use nat_common::protocol_factory::{HandleProtocolData, HandleProtocolFactory};
 use std::fmt::Debug;
-use std::future::Future;
 use std::sync::Arc;
-use tokio::runtime::Runtime;
-use tracing_subscriber::util::SubscriberInitExt;
-use my_service::sea_orm::DbConn;
+
+
 
 const PAGE_SIZE: u64 = 5;
 
@@ -257,7 +252,7 @@ pub struct ServerLoginReqHandler {
 #[async_trait]
 impl HandleProtocolData for ServerLoginReqHandler {
     // todo:
-    async fn handle(&self, a: &Vec<u8>) {
+    async fn handle(&self, a: &Vec<u8>)->Option<Vec<u8>> {
         let req: LoginReqData = bincode::deserialize(a).unwrap();
         println!("LoginReqHandler received data :{:?}  ", req);
         let result = self.service.find_by_account_and_pwd(&req).await;
@@ -273,6 +268,8 @@ impl HandleProtocolData for ServerLoginReqHandler {
                 info!("ServerLoginReqHandler#handle的执行失败! err:{e}");
             }
         }
+
+        None
     }
 }
 
@@ -339,3 +336,6 @@ fn init(cfg: &mut web::ServiceConfig) {
     cfg.service(registry_account);
     cfg.service(account_index);
 }
+
+
+

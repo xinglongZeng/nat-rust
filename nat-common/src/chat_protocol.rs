@@ -1,4 +1,5 @@
 use core::cmp::Eq;
+use std::any::Any;
 use derive_more::Display;
 use enum_index::{EnumIndex, IndexEnum};
 use enum_index_derive::{EnumIndex, IndexEnum};
@@ -14,6 +15,16 @@ pub struct LoginReqData {
     pub pwd: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BusinessResult<T:BaseRespData> {
+    pub flg: bool,
+    pub result: Option<T>,
+    pub err:Option<String>,
+}
+
+pub trait BaseRespData{
+
+}
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

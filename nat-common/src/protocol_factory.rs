@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 #[async_trait]
 pub trait HandleProtocolData {
-    async fn handle(&self, a: &Vec<u8>);
+    async fn handle(&self, a: &Vec<u8>)->Option<Vec<u8>>;
 }
 
 // domo
@@ -13,13 +13,17 @@ pub struct LoginReqHandler {
 
 }
 
+
+
+
 // domo
 #[async_trait]
 impl HandleProtocolData for LoginReqHandler {
     // todo:
-    async fn handle(&self, a: &Vec<u8>) {
+    async fn handle(&self, a: &Vec<u8>)->Option<Vec<u8>> {
         let req: LoginReqData = bincode::deserialize(a).unwrap();
         info!("LoginReqHandler received data :{:?}  ", req);
+        None
     }
 }
 

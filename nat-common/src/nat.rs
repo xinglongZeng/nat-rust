@@ -204,7 +204,13 @@ pub async fn parse_tcp_stream(
         index += len.clone();
 
         if pkg.completion() {
-            handle_pkg(&pkg, factory).await;
+            let result = handle_pkg(&pkg, factory).await;
+            match result {
+                Some(t)=>{
+                    cache.stream.write_all(&t);
+                },
+                None=>{},
+            }
         }
     }
 }
@@ -229,14 +235,14 @@ fn fill(pkg: &mut Protocol, all_bytes: &Vec<u8>, mut index: usize, total_len: us
 }
 
 // todo:
-async fn handle_pkg(pkg: &Protocol, factory: &HandleProtocolFactory) {
+async fn handle_pkg(pkg: &Protocol, factory: &HandleProtocolFactory)->Option<Vec<u8>> {
     println!("{:?}", pkg);
 
     // convert bytes to struct by type
     let data_type = pkg.data_type.as_ref().unwrap()[0].clone();
     let command = ChatCommand::to_self(data_type);
     let handler = factory.get_handler(&command);
-    handler.handle(pkg.data.as_ref().unwrap()).await;
+    handler.handle(pkg.data.as_ref().unwrap()).await
 }
 
 // --------------  test -------------
