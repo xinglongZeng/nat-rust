@@ -18,12 +18,13 @@ use actix_web::http::StatusCode;
 use async_trait::async_trait;
 use derive_more::Display;
 use log::{debug, info};
-use nat_common::chat_protocol::{ChatCommand, LoginReqData};
+use nat_common::chat_protocol::{ChatCommand, LoginReqData,BusinessResult};
 use nat_common::nat::{start_tcp_server,TcpSocketConfig};
 use nat_common::protocol_factory::{HandleProtocolData, HandleProtocolFactory};
 use std::fmt::Debug;
 use std::sync::Arc;
-
+use my_entity::userinfo;
+use my_entity::userinfo::Model;
 
 
 const PAGE_SIZE: u64 = 5;
@@ -253,23 +254,42 @@ pub struct ServerLoginReqHandler {
 impl HandleProtocolData for ServerLoginReqHandler {
     // todo:
     async fn handle(&self, a: &Vec<u8>)->Option<Vec<u8>> {
+
         let req: LoginReqData = bincode::deserialize(a).unwrap();
+
         println!("LoginReqHandler received data :{:?}  ", req);
-        let result = self.service.find_by_account_and_pwd(&req).await;
 
-        match result {
+        let find_result = self.service.find_by_account_and_pwd(&req).await;
+
+        let  biz = match find_result {
+
             Ok(t) => {
-                info!(
-                    "ServerLoginReqHandler#handle的执行成功! result:{:?}",
-                    t.unwrap()
-                );
+                // info!(
+                //     "ServerLoginReqHandler#handle的执行成功! result:{:?}",
+                //     &t.unwrap()
+                // );
+                BusinessResult{
+                    biz_type : ChatCommand:: LoginResp,
+                    flg: true ,
+                    result: Some(t) ,
+                    err: None ,
+                }
             }
-            Err(e) => {
-                info!("ServerLoginReqHandler#handle的执行失败! err:{e}");
-            }
-        }
 
-        None
+
+            Err(e) => {
+                info!("ServerLoginReqHandler#handle的执行失败! err:{}",e.clone());
+                BusinessResult{
+                    biz_type : ChatCommand:: LoginResp,
+                    flg: false ,
+                    result: None ,
+                    err: Some(e) ,
+                }
+
+            }
+        };
+
+        Some(bincode::serialize(&biz).unwrap())
     }
 }
 

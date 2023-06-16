@@ -16,15 +16,14 @@ pub struct LoginReqData {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct BusinessResult<T:BaseRespData> {
+pub struct BusinessResult<T> {
+    pub biz_type:ChatCommand,
     pub flg: bool,
     pub result: Option<T>,
     pub err:Option<String>,
 }
 
-pub trait BaseRespData{
 
-}
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,7 +59,7 @@ pub enum ProtocolFieldNameEnum {
     data,
 }
 
-#[derive(Debug, Clone, EnumIndex, IndexEnum, Hash)]
+#[derive(Debug, Clone, EnumIndex, IndexEnum, Hash,Serialize, Deserialize)]
 pub enum ChatCommand {
     LoginReq,
     LoginResp,

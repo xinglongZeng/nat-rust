@@ -1,5 +1,5 @@
 use crate::chat_protocol::{calculate_len_by_data, ChatCommand, LoginReqData, Protocol};
-use crate::protocol_factory::{HandleProtocolFactory};
+use crate::protocol_factory::HandleProtocolFactory;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
@@ -22,24 +22,20 @@ pub struct TcpSocketConfig {
 }
 
 impl TcpSocketConfig {
-
-    pub fn new()->TcpSocketConfig{
-
+    pub fn new() -> TcpSocketConfig {
         dotenvy::dotenv().ok();
 
         let tcp_host = env::var("TCP_HOST").expect("TCP_HOST is not set in .env file");
 
         let tcp_port = env::var("TCP_PORT").expect("TCP_PORT is not set in .env file");
 
-        TcpSocketConfig{ tcp_host,tcp_port }
+        TcpSocketConfig { tcp_host, tcp_port }
     }
 
-    pub fn get_url(&self)->String{
-        format!("{}:{}",self.tcp_host,self.tcp_port)
+    pub fn get_url(&self) -> String {
+        format!("{}:{}", self.tcp_host, self.tcp_port)
     }
-
 }
-
 
 pub struct ProtocolCacheData {
     stream: TcpStream,
@@ -206,10 +202,10 @@ pub async fn parse_tcp_stream(
         if pkg.completion() {
             let result = handle_pkg(&pkg, factory).await;
             match result {
-                Some(t)=>{
+                Some(t) => {
                     cache.stream.write_all(&t);
-                },
-                None=>{},
+                }
+                None => {}
             }
         }
     }
@@ -235,7 +231,7 @@ fn fill(pkg: &mut Protocol, all_bytes: &Vec<u8>, mut index: usize, total_len: us
 }
 
 // todo:
-async fn handle_pkg(pkg: &Protocol, factory: &HandleProtocolFactory)->Option<Vec<u8>> {
+async fn handle_pkg(pkg: &Protocol, factory: &HandleProtocolFactory) -> Option<Vec<u8>> {
     println!("{:?}", pkg);
 
     // convert bytes to struct by type
@@ -288,7 +284,9 @@ mod tests {
 
         factory.registry_handler(ChatCommand::LoginReq, Box::new(LoginReqHandler {}));
 
-        start_tcp_server(&env_config.socket_config, &factory).await.unwrap();
+        start_tcp_server(&env_config.socket_config, &factory)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -303,6 +301,4 @@ mod tests {
 
         send_msg(&mut conn, &data).await.unwrap();
     }
-
-
 }
