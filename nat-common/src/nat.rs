@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::future::Future;
+use std::io::Write;
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -81,12 +82,18 @@ pub async fn start_tcp_server(
     }
 }
 
-// 连接到指定地址
+// 异步连接到指定地址
 pub async fn connect(address: &String) -> Result<TcpStream, Box<dyn Error>> {
     let conn = TcpStream::connect(address).await?;
 
     Ok(conn)
 }
+
+pub  fn sync_connect(address: &String) -> Result<std::net::TcpStream, Box<dyn Error>> {
+    let conn = std::net::TcpStream::connect(address).unwrap();
+    Ok(conn)
+}
+
 
 async fn login_to_server(config: &ClientEnvConfig) -> Result<TcpStream, Box<dyn Error>> {
     let mut serv_conn = connect(&config.server_address).await?;
@@ -98,7 +105,7 @@ async fn login_to_server(config: &ClientEnvConfig) -> Result<TcpStream, Box<dyn 
     Ok(serv_conn)
 }
 
-fn create_login_data(config: &ClientEnvConfig) -> Vec<u8> {
+pub fn create_login_data(config: &ClientEnvConfig) -> Vec<u8> {
     let login_data = LoginReqData {
         account: config.account.clone(),
         pwd: config.password.clone(),
@@ -133,9 +140,14 @@ fn create_login_data(config: &ClientEnvConfig) -> Vec<u8> {
     protocol.to_vec()
 }
 
-async fn send_msg(stream: &mut TcpStream, data: &Vec<u8>) -> Result<(), Box<dyn Error>> {
+pub async fn send_msg(stream: &mut TcpStream, data: &Vec<u8>) -> Result<(), Box<dyn Error>> {
     let _write_len = stream.write_all(data.as_slice()).await?;
+    stream.flush().await?;
+    Ok(())
+}
 
+pub  fn sync_send_msg(stream: &mut std::net::TcpStream, data: &Vec<u8>) -> Result<(), Box<dyn Error>> {
+    let _write_len = stream.write_all(data.as_slice())?;
     Ok(())
 }
 
@@ -289,7 +301,8 @@ mod tests {
             .unwrap();
     }
 
-    #[tokio::test]
+    // #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn test_send_msg() {
         let mut conn = connect(&"127.0.0.1:9999".to_string())
             .await
@@ -301,23 +314,23 @@ mod tests {
 
         send_msg(&mut conn, &data).await.unwrap();
 
+        println!("send_msg finish!");
+
         let mut msg = vec![0; 1024];
 
-        loop {
-            // Wait for the socket to be readable
-            conn.readable().await.unwrap();
+        conn.readable().await.unwrap();
 
-            // Try to read data, this may still fail with `WouldBlock`
-            // if the readiness event is a false positive.
-            match conn.try_read(&mut msg) {
-                Ok(n) => {
-                    msg.truncate(n);
-                    break;
-                }
-                Err(e) => {
-                    println!("{}", e);
-                    break;
-                }
+        // Try to read data, this may still fail with `WouldBlock`
+        // if the readiness event is a false positive.
+        match conn.try_read(&mut msg) {
+            Ok(n) => {
+                msg.truncate(n);
+                println!("GOT = {:?}", msg);
+                return;
+            }
+            Err(e) => {
+                println!("{}", e);
+                return;
             }
         }
 

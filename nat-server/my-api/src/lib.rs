@@ -137,6 +137,10 @@ async fn api_start_tcp_server(arc: Arc<DatabaseConnection>) -> std::io::Result<(
     start_tcp_server(&config, &factory).await
 }
 
+
+
+
+
 #[actix_web::main]
 async fn api_start_web_server( ) -> std::io::Result<()> {
     // set logger level to debug
