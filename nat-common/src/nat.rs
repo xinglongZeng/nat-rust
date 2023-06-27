@@ -300,5 +300,26 @@ mod tests {
         let data = create_login_data(&config);
 
         send_msg(&mut conn, &data).await.unwrap();
+
+        let mut msg = vec![0; 1024];
+
+        loop {
+            // Wait for the socket to be readable
+            conn.readable().await.unwrap();
+
+            // Try to read data, this may still fail with `WouldBlock`
+            // if the readiness event is a false positive.
+            match conn.try_read(&mut msg) {
+                Ok(n) => {
+                    msg.truncate(n);
+                    break;
+                }
+                Err(e) => {
+                    println!("{}", e);
+                    break;
+                }
+            }
+        }
+
     }
 }
