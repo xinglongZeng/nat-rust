@@ -190,19 +190,24 @@ pub async fn parse_tcp_stream(
         }
     };
 
-    let mut buffer = Vec::new();
+    // let mut buffer = Vec::new();
+    // let mut buffer = Vec::with_capacity(128);
+    let mut buf = [0; 128];
 
     let cache = all_cache.get_mut(&address).unwrap();
 
-    cache.stream.read_to_end(&mut buffer).await.unwrap();
+    let mut remain=cache.stream.read(&mut buf).await.unwrap();
+    // cache.stream.read_buf(&mut buffer).await.unwrap();
 
-    let mut remain = buffer.len();
+    // let mut remain = buf.len();
 
     let total_len = remain.clone();
 
     let mut index = 0;
 
     let mut pkg = cache.data.as_mut().unwrap();
+
+    let buffer = buf.to_vec();
 
     while remain > 0 {
         let len = fill(&mut pkg, &buffer, index.clone(), total_len.clone());
@@ -215,7 +220,8 @@ pub async fn parse_tcp_stream(
             let result = handle_pkg(&pkg, factory).await;
             match result {
                 Some(t) => {
-                    cache.stream.write_all(&t);
+                    let _resp =cache.stream.write_all(&t).await;
+                    let _flush_result=cache.stream.flush().await;
                 }
                 None => {}
             }
